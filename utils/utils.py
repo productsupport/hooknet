@@ -5,6 +5,7 @@ import pandas as pd
 import openslide
 import matplotlib.path as mp
 import xml.etree.ElementTree as et
+import scipy.ndimage
 
 from typing import List, Any
 
@@ -74,11 +75,9 @@ class Annotation:
         le = preprocessing.LabelEncoder()
         if names is not None:
             le.fit(names)
-#             print('classes: ', list(le.classes_))
+            # print('classes: ', list(le.classes_))
             idx = [j for j, word in enumerate(label) if word in names]
-            # print('idx: ', idx)
             label = [label[i] for i in idx]
-            # print('label: ', label)
             classnames = list(le.classes_)
             xy = [xy[i] for i in idx]
         else:
@@ -115,26 +114,23 @@ def anno_coords(xy, anno, label, full_tile_anno=True, tsz=256):
     for i, a in enumerate(anno):
         mpath = mp.Path(a)
         idx = mpath.contains_points(xycorners)
-        # print('idx shape: ', idx.shape)
         if full_tile_anno:
             # idx_reshape = idx.reshape(4, -1)
             # print("idx_reshape: ", idx_reshape.shape)
             # print("idx_reshape: ", idx_reshape[:, 0])
             # print("idx_reshape: ", idx_reshape[:, 100])
             # print("idx_reshape: ", idx_reshape)
+            # print('sum idx: ', np.sum(idx.reshape((4, -1)).all(axis=0)))
             annoidx.append(idx.reshape((4, -1)).all(axis=0))
+
         else:
             annoidx.append(idx.reshape((4, -1)).any(axis=0))
-    
+
     annoidx = np.array(annoidx)
-    # print("annoidx: ", annoidx.shape)
 
     xyanno = xy[annoidx.any(axis=0), :]
     annoidx = annoidx[:, annoidx.any(axis=0)]
 
-    # print("annoidx: ", annoidx.shape)
-    # print("xyanno: ", xyanno.shape)
-    
     # nm = 5
     # xc = [];
     # yc = []
@@ -167,7 +163,6 @@ def anno_coords(xy, anno, label, full_tile_anno=True, tsz=256):
     for i in annoidx.transpose():
         annoilabel.append(label[np.nonzero(i)[0]])
         annoi.append(np.nonzero(i)[0])
-
     return xyanno, annoi, annoilabel
 
 
@@ -191,12 +186,13 @@ def sort_anno(anno):
     # Re-order based on the number of annotations within annotations
     isinside = np.sum(annoinside, axis=0)
     # print("isinside: ", isinside.shape)
-    anno.coords = np.array(anno.coords)[np.argsort(isinside)]
+    anno.coords = np.array(anno.coords, dtype=object)[np.argsort(isinside)]
     anno.labelid = np.array(anno.labelid)[np.argsort(isinside)]
+
     return anno
 
 
-def get_label(xy, anno, annoidx, labelid, tsz, method='multi'):
+def get_label(xy, anno, annoidx, labelid, tsz, method='multi', debug=False):
     """Extract tissue masks from annotations at a given tile
 
     :param xy:          Coordinates of top-left corner of tile
@@ -220,22 +216,46 @@ def get_label(xy, anno, annoidx, labelid, tsz, method='multi'):
         label1 = np.zeros((tsz, tsz))
         label2 = np.zeros((tsz, tsz))
 
+        if debug:
+            label1_  = np.zeros((tsz, tsz))
+            label4_  = np.zeros((2 * tsz, 2 * tsz))
+            label16_ = np.zeros((4 * tsz, 4 * tsz))
+
         for i in annoidx:
             mx, my = np.meshgrid(np.linspace(xy[0], xy[0] + tsz, tsz),
                                  np.linspace(xy[1], xy[1] + tsz, tsz))
             path = mp.Path(anno[i])
             label = path.contains_points(np.array([mx.flatten(), my.flatten()]).transpose()).reshape((tsz, tsz))
-            label0[label] = labelid[i] + 1
 
-            mx, my = np.meshgrid(np.linspace(xy[0] - int(0.5 * tsz), xy[0] + int(1.5 * tsz), tsz),
-                                 np.linspace(xy[1] - int(0.5 * tsz), xy[1] + int(1.5 * tsz), tsz))
-            label = path.contains_points(np.array([mx.flatten(), my.flatten()]).transpose()).reshape((tsz, tsz))
+            label0[label] = labelid[i] + 1
+            if debug:
+                label = path.contains_points(np.array([mx.flatten(), my.flatten()]).transpose()).reshape((tsz, tsz))
+                label1_[label] = labelid[i] + 1
+
+            mx, my = np.meshgrid(np.linspace(xy[0] - int(0.5 * tsz), xy[0] + int(1.5 * tsz), 2 * tsz),
+                                 np.linspace(xy[1] - int(0.5 * tsz), xy[1] + int(1.5 * tsz), 2 * tsz))
+            label = path.contains_points(np.array([mx.flatten(), my.flatten()]).transpose()).reshape(2 * tsz, 2 * tsz)
+            if debug:
+                label4_[label] = labelid[i] + 1
+
+            label = scipy.ndimage.interpolation.zoom(label, 0.5,
+                                                     order=0, mode='nearest')
             label1[label] = labelid[i] + 1
 
-            mx, my = np.meshgrid(np.linspace(xy[0] - int(1.5 * tsz), xy[0] + int(2.5 * tsz), tsz),
-                                 np.linspace(xy[1] - int(1.5 * tsz), xy[1] + int(2.5 * tsz), tsz))
-            label = path.contains_points(np.array([mx.flatten(), my.flatten()]).transpose()).reshape((tsz, tsz))
+
+            mx, my = np.meshgrid(np.linspace(xy[0] - int(1.5 * tsz), xy[0] + int(2.5 * tsz), 4 * tsz),
+                                 np.linspace(xy[1] - int(1.5 * tsz), xy[1] + int(2.5 * tsz), 4 * tsz))
+            label = path.contains_points(np.array([mx.flatten(), my.flatten()]).transpose()).reshape((4 * tsz, 4 * tsz))
+            if debug:
+                label16_[label] = labelid[i] + 1
+
+            label = scipy.ndimage.interpolation.zoom(label, 0.25,
+                                                     order=0, mode='nearest')
             label2[label] = labelid[i] + 1
+
+
+        if debug:
+            return label1_, label4_, label16_, label0, label1, label2
         return label0, label1, label2
     elif method == 'augment':
         label2 = np.zeros((4 * tsz, 4 * tsz))

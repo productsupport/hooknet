@@ -1,0 +1,5 @@
+
+
+# extract patches 
+python extract_patches_labels.py --svsfolder D:\\annotated_slides\\Slides --xmlfolder D:\\annotated_slides\\Annotations --outfolder D:\\annotated_slides\\separate_patches_and_labels_hooknet_exp_1 --csv D:\\annotated_slides\\Slides\\csv_file_temp.csv 
+
