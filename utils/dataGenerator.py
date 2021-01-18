@@ -185,9 +185,10 @@ class DataGenerator_metaData(keras.utils.Sequence):
         list_IDs_temp = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
 
         # Generate data
-        X, Y = self.__data_generation(list_IDs_temp)
-
-        return X, Y
+        # (X_c, Y_c, sample_weights_c), (X_t, Y_t, sample_weights_t) = self.__data_generation(list_IDs_temp)
+        # return (X_c, Y_c, sample_weights_c), (X_t, Y_t, sample_weights_t)
+        (X_c, X_t), (Y_c, Y_t), (sample_weights_c, sample_weights_t) = self.__data_generation(list_IDs_temp)
+        return (X_c, X_t), (Y_c, Y_t), (sample_weights_c, sample_weights_t)
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
@@ -199,17 +200,23 @@ class DataGenerator_metaData(keras.utils.Sequence):
     def __data_generation(self, list_IDs_temp):
         'Generates data containing batch_size samples'  # X : (n_samples, *dim, n_channels)
         # Initialization
-        X = np.empty((self.batch_size, *self.dim, self.n_channels))
-        Y = np.empty((self.batch_size, *self.dim))
+        X_c = np.empty((self.batch_size, *self.dim, self.n_channels))
+        X_t = np.empty((self.batch_size, *self.dim, self.n_channels))
+        Y_c = np.empty((self.batch_size, *self.dim))
+        Y_t = np.empty((self.batch_size, *self.dim))
 
         # Generate data
         for i, ID in enumerate(list_IDs_temp):
 
             # Store sample
             with h5py.File(os.path.join(self.data_folder, ID), 'r') as f:
-                patch = f['patches_20x']['patch'][:]
-                seg = f['patches_20x']['segmentation'][:]
-                patch = patch.astype('float') / 255
+                patch_t = f['patches_20x']['patch'][:]
+                patch_c = f['patches_5x']['patch'][:]
+                seg_t = f['patches_20x']['segmentation'][:]
+                seg_c = f['patches_5x']['segmentation'][:]
+
+                patch_t = patch_t.astype('float') / 255
+                patch_c = patch_c.astype('float') / 255
 
                 if self.blur > 0:
                     sigma = np.random.rand(1) * (1 + self.blur)
@@ -217,51 +224,103 @@ class DataGenerator_metaData(keras.utils.Sequence):
 
                 if self.colour_augment:
                     if self.colour_scheme == 'hsv':
-                        patch = np.clip(patch, -1, 1)
+                        patch_c = np.clip(patch_c, -1, 1)
+                        patch_t = np.clip(patch_t, -1, 1)
                         sample_hue = (np.random.rand(1) - 0.5) * 1
                         sample_saturation = (np.random.rand(1) - 0.5) * 1
-                        hsv = rgb2hsv(patch)
-                        hsv[:, :, 0] = np.clip(hsv[:, :, 0] + sample_hue, 0, 1)
-                        hsv[:, :, 1] = np.clip(hsv[:, :, 1] + sample_saturation, 0, 1)
-                        patch = hsv2rgb(hsv)
-                        patch = np.clip(patch, 0, 1.0).astype(np.float32)
+                        hsv_c = rgb2hsv(patch_c)
+                        hsv_t = rgb2hsv(patch_t)
+                        hsv_c[:, :, 0] = np.clip(hsv_c[:, :, 0] + sample_hue, 0, 1)
+                        hsv_c[:, :, 1] = np.clip(hsv_c[:, :, 1] + sample_saturation, 0, 1)
+                        hsv_t[:, :, 0] = np.clip(hsv_t[:, :, 0] + sample_hue, 0, 1)
+                        hsv_t[:, :, 1] = np.clip(hsv_t[:, :, 1] + sample_saturation, 0, 1)
+
+                        patch_c = hsv2rgb(hsv_c)
+                        patch_t = hsv2rgb(hsv_t)
+                        patch_c = np.clip(patch_c, 0, 1.0).astype(np.float32)
+                        patch_t = np.clip(patch_t, 0, 1.0).astype(np.float32)
+
                     elif self.colour_scheme == 'hed':
                         ah = 0.95 + np.random.random() * 0.1
                         bh = -0.05 + np.random.random() * 0.1
                         ae = 0.95 + np.random.random() * 0.1
                         be = -0.05 + np.random.random() * 0.1
-                        patch = np.clip(patch, -1, 1)
-                        hed = rgb2hed(patch)
-                        hed[:, :, 0] = ah * hed[:, :, 0] + bh
-                        hed[:, :, 1] = ae * hed[:, :, 1] + be
-                        patch = hed2rgb(hed)
-                        patch = np.clip(patch, 0, 1.0).astype(np.float32)
+                        patch_c = np.clip(patch_c, -1, 1)
+                        patch_t = np.clip(patch_t, -1, 1)
+                        hed_c = rgb2hed(patch_c)
+                        hed_t = rgb2hed(patch_t)
+                        hed_c[:, :, 0] = ah * hed_c[:, :, 0] + bh
+                        hed_c[:, :, 1] = ae * hed_c[:, :, 1] + be
+                        hed_t[:, :, 0] = ah * hed_t[:, :, 0] + bh
+                        hed_t[:, :, 1] = ae * hed_t[:, :, 1] + be
+
+                        patch_c = hed2rgb(hed_c)
+                        patch_t = hed2rgb(hed_t)
+
+                        patch_c = np.clip(patch_c, 0, 1.0).astype(np.float32)
+                        patch_t = np.clip(patch_t, 0, 1.0).astype(np.float32)
 
                 if self.flip:
                     # if whatflip == 5, nothing happens
                     whatflip = np.random.randint(6)
                     if whatflip == 0:  # Rotate 90
-                        patch = rotate(patch, 90)
-                        seg = rotate(seg, 90)
+                        patch_c = rotate(patch_c, 90)
+                        seg_c = rotate(seg_c, 90)
+                        patch_t = rotate(patch_t, 90)
+                        seg_t = rotate(seg_t, 90)
                     elif whatflip == 1:  # Rotate 180
-                        patch = rotate(patch, 180)
-                        seg = rotate(seg, 180)
+                        patch_c = rotate(patch_c, 180)
+                        seg_c = rotate(seg_c, 180)
+                        patch_t = rotate(patch_t, 180)
+                        seg_t = rotate(seg_t, 180)
                     elif whatflip == 2:  # Rotate 270
-                        patch = rotate(patch, 270)
-                        seg = rotate(seg, 270)
+                        patch_c = rotate(patch_c, 270)
+                        seg_c = rotate(seg_c, 270)
+                        patch_t = rotate(patch_t, 270)
+                        seg_t = rotate(seg_t, 270)
                     elif whatflip == 3:  # Flip left-right
-                        patch = patch[:, -1::-1, :]
-                        seg = seg[:, -1::-1]
+                        patch_c = patch_c[:, -1::-1, :]
+                        seg_c = seg_c[:, -1::-1]
+                        patch_t = patch_t[:, -1::-1, :]
+                        seg_t = seg_t[:, -1::-1]
                     elif whatflip == 4:  # Flip up-down
-                        patch = patch[-1::-1, :, :]
-                        seg = seg[-1::-1, :]
+                        patch_c = patch_c[-1::-1, :, :]
+                        seg_c = seg_c[-1::-1, :]
+                        patch_t = patch_t[-1::-1, :, :]
+                        seg_t = seg_t[-1::-1, :]
 
-                X[i,] = patch  # f['patches_20x']['patch'][:]
-                Y[i,] = seg  # f['patches_20x']['segmentation'][:]
+                X_c[i,] = patch_c
+                Y_c[i,] = seg_c
 
-        Y = keras.utils.to_categorical(Y, num_classes=self.n_classes)
+                X_t[i,] = patch_t
+                Y_t[i,] = seg_t
 
-        return X, Y
+        # sample weights: approach 1: 0 for unknown class and 1 for the rest
+        sample_weights_c = np.ones_like(Y_c)
+        sample_weights_c = sample_weights_c.astype(dtype='float32')
+        sample_weights_c[np.where(Y_c == 0)] = 0.0
+
+        sample_weights_t = np.ones_like(Y_t)
+        sample_weights_t = sample_weights_t.astype(dtype='float32')
+        sample_weights_t[np.where(Y_t == 0)] = 0.0
+
+        Y_c = keras.utils.to_categorical(Y_c, num_classes=self.n_classes)
+        Y_t = keras.utils.to_categorical(Y_t, num_classes=self.n_classes)
+
+        sample_weights_c = np.reshape(
+            sample_weights_c, (sample_weights_c.shape[0],
+                             sample_weights_c.shape[1] * sample_weights_c.shape[2]))
+
+        sample_weights_t = np.reshape(
+            sample_weights_t, (sample_weights_t.shape[0],
+                               sample_weights_t.shape[1] * sample_weights_t.shape[2]))
+
+        # reshape to be able to use sample_weights
+        Y_c = np.reshape(Y_c, (Y_c.shape[0], Y_c.shape[1] * Y_c.shape[2], -1))
+        Y_t = np.reshape(Y_t, (Y_t.shape[0], Y_t.shape[1] * Y_t.shape[2], -1))
+
+        return (X_c, X_t), (Y_c, Y_t), (sample_weights_c, sample_weights_t)
+        # return (X_c, Y_c, sample_weights_c), (X_t, Y_t, sample_weights_t)
 
 
     

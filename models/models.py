@@ -38,7 +38,7 @@ def context_target_unet(context_input, target_input, nClass, n_conv=2, nfilter0=
     c_pool3_1_d = MaxPooling2D(pool_size=(2, 2))(c_conv3_1_d)
 
     # Block 4: context
-    nfilter *= growth
+    # nfilter *= growth
     c_conv4_d = ConvBlock(n_conv, nfilter, c_pool3_1_d)
     c_conv4_d = ConvBlock(n_conv, nfilter, c_conv4_d)
 
@@ -60,6 +60,7 @@ def context_target_unet(context_input, target_input, nClass, n_conv=2, nfilter0=
 
     # Block 7 - up: context
     # up7 = UpSampling2D(size=(2, 2), data_format=None, interpolation='nearest')(conv6_u)
+    nfilter /= growth
     c_up7 = Conv2DTranspose(nfilter, kernel_size=(2, 2), strides=(2, 2))(c_conv6_u)
     c_merge7 = Concatenate()([c_conv1_d, c_up7])
     c_conv7_u = ConvBlock(n_conv, nfilter, c_merge7)
@@ -74,10 +75,12 @@ def context_target_unet(context_input, target_input, nClass, n_conv=2, nfilter0=
     t_pool1_d = MaxPooling2D(pool_size=(2, 2))(t_conv1_d)
 
     # Block 2 - down: target
+    nfilter *= growth
     t_conv2_d = ConvBlock(n_conv, nfilter, t_pool1_d)
     t_pool2_d = MaxPooling2D(pool_size=(2, 2))(t_conv2_d)
 
     # Block 3 - down: target
+    nfilter *= growth
     t_conv3_d = ConvBlock(n_conv, nfilter, t_pool2_d)
     t_pool3_d = MaxPooling2D(pool_size=(2, 2))(t_conv3_d)
 
@@ -86,7 +89,7 @@ def context_target_unet(context_input, target_input, nClass, n_conv=2, nfilter0=
     t_pool3_1_d = MaxPooling2D(pool_size=(2, 2))(t_conv3_1_d)
 
     # Block 4: target
-    nfilter *= growth
+    # nfilter *= growth
     t_conv4_d = ConvBlock(n_conv, nfilter, t_pool3_1_d)
     t_merge4_d = Concatenate()([t_conv4_d, c_conv7_u_crop])
     t_conv4_d = ConvBlock(n_conv, nfilter, t_merge4_d)
@@ -102,18 +105,22 @@ def context_target_unet(context_input, target_input, nClass, n_conv=2, nfilter0=
     t_conv5_u = ConvBlock(n_conv, nfilter, t_merge5)
 
     # Block 6 - up: target
+    nfilter /= growth
     t_up6 = Conv2DTranspose(nfilter, kernel_size=(2, 2), strides=(2, 2))(t_conv5_u)
     t_merge6 = Concatenate()([t_conv2_d, t_up6])
     t_conv6_u = ConvBlock(n_conv, nfilter, t_merge6)
 
     # Block 7 - up: target
+    nfilter /= growth
     t_up7 = Conv2DTranspose(nfilter, kernel_size=(2, 2), strides=(2, 2))(t_conv6_u)
     t_merge7 = Concatenate()([t_conv1_d, t_up7])
     t_conv7_u = ConvBlock(n_conv, nfilter, t_merge7)
 
-    context_outputlayer = Convolution2D(nClass, 1, activation='softmax')(c_conv7_u)
-    target_outputlayer = Convolution2D(nClass, 1, activation='softmax')(t_conv7_u)
-    # outputlayer = Reshape((input_size[0] * input_size[1], nClass))(outputlayer)  # to be able to use sample_weights
+    context_outputlayer = Convolution2D(nClass, 1, activation='softmax')(c_conv7_u)  # name="out_context"
+    target_outputlayer = Convolution2D(nClass, 1, activation='softmax')(t_conv7_u)  # name='out_target'
+
+    context_outputlayer = Reshape((context_input[0] * context_input[1], nClass), name="out_context")(context_outputlayer)  # to be able to use sample_weights
+    target_outputlayer = Reshape((target_input[0] * target_input[1], nClass), name="out_target")(target_outputlayer)  # to be able to use sample_weights
 
     context_target_model = Model(inputs=[context_inputlayer, target_inputlayer],
                                  outputs=[context_outputlayer, target_outputlayer])

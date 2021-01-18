@@ -1,11 +1,10 @@
-HookNet:
+### HookNet paper:
 0.5 and 8 mu/px
-
-284x284x3
-
+patch size: 284x284x3
 Valid convolutions. 
 4 down-sampling and 4 up-sampling operations
 
+# 
 284-282-280                                                           104-102-100
            140-138-136                                        56-54-52
                       68-66-64                        32-30-28
@@ -41,6 +40,63 @@ Valid convolutions.
           (1.0,8.0)   64-64-64         64-64-64  (1.0,8.0)
                    (2.0,16.0) 32-32-32 (2.0,16.0)
                              (4.0,32.0) 
+
+### extract patches
+python extract_patches_labels.py --svsfolder D:\\annotated_slides\\Slides --xmlfolder D:\\annotated_slides\\Annotations --outfolder D:\\annotated_slides\\separate_patches_and_labels_hooknet_exp_1 --csv D:\\annotated_slides\\Slides\\csv_file_temp.csv
+
+# hooknet_exp_1: experiment details
+- all 4 corners of the patches are within the annotated segment 
+- one patch @ 20x includes only one class (ignored the ones with multiple classes)
+- following augmentations are done: colour_augment=True, flip_augment=True, colour_scheme='hed'
+- in each epoch, 1000 samples are randomly selected from each class (with replacement as for some classes total number of available patches are less than 1000): 
+  classmeta_temp = self.metaData.groupby(["class_id"]).sample(n=1000, replace=True)  # random_state=1 
+- class/label stats for:
+# training data:
+  class_id       class_label    counts
+0         1           Adipose   15164
+1         2               CIS    1871
+2         3               IDC   27508
+3         4               ILC    5734
+4         5        Lymfocyten     433
+5         6        Mastopatic    2683
+6         7          Necrosis    1397
+7         8  NormalEpithelial     103
+8         9          RedBlood     564
+9        10            Stroma   10284
+
+# validation data:
+   class_id       class_label   counts
+0         1           Adipose   18677
+1         2               CIS     115
+2         3               IDC   12920
+3         4               ILC   10346
+4         5        Lymfocyten      58
+5         6        Mastopatic    1140
+6         7          Necrosis      15
+7         8  NormalEpithelial     330
+8         9          RedBlood      23
+9        10            Stroma    1578
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
