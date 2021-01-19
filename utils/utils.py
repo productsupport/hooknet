@@ -52,7 +52,7 @@ def tissue_segment(img):
 
 # XML reader for annotations written by the ASAP WSI-viewer (https://computationalpathologygroup.github.io/ASAP/)
 class Annotation:
-    def __init__(self, xmlfile, names=None):
+    def __init__(self, xmlfile, names=None, otherNames=None):
         self.xmlfile = xmlfile
         tree = et.parse(self.xmlfile)
         root = tree.getroot()
@@ -61,7 +61,12 @@ class Annotation:
         label = []
         for elem in annotations:
             # Loop over annotations
-            label.append(elem.get('PartOfGroup'))
+            label_temp = elem.get('PartOfGroup')
+            if label_temp in otherNames:
+                label_temp = 'Other'
+                label.append(label_temp)
+            else:
+                label.append(label_temp)
             coordinates = []
             for k in elem[0]:
                 # Loop over xy-coordinates of polygon points
@@ -213,12 +218,12 @@ def get_label(xy, anno, annoidx, labelid, tsz, method='multi', debug=False):
         return label0
     elif method == 'multi':
         label0 = np.zeros((tsz, tsz))
-        label1 = np.zeros((tsz, tsz))
+        # label1 = np.zeros((tsz, tsz))
         label2 = np.zeros((tsz, tsz))
 
         if debug:
             label1_  = np.zeros((tsz, tsz))
-            label4_  = np.zeros((2 * tsz, 2 * tsz))
+            # label4_  = np.zeros((2 * tsz, 2 * tsz))
             label16_ = np.zeros((4 * tsz, 4 * tsz))
 
         for i in annoidx:
@@ -232,15 +237,15 @@ def get_label(xy, anno, annoidx, labelid, tsz, method='multi', debug=False):
                 label = path.contains_points(np.array([mx.flatten(), my.flatten()]).transpose()).reshape((tsz, tsz))
                 label1_[label] = labelid[i] + 1
 
-            mx, my = np.meshgrid(np.linspace(xy[0] - int(0.5 * tsz), xy[0] + int(1.5 * tsz), 2 * tsz),
-                                 np.linspace(xy[1] - int(0.5 * tsz), xy[1] + int(1.5 * tsz), 2 * tsz))
-            label = path.contains_points(np.array([mx.flatten(), my.flatten()]).transpose()).reshape(2 * tsz, 2 * tsz)
-            if debug:
-                label4_[label] = labelid[i] + 1
-
-            label = scipy.ndimage.interpolation.zoom(label, 0.5,
-                                                     order=0, mode='nearest')
-            label1[label] = labelid[i] + 1
+            # mx, my = np.meshgrid(np.linspace(xy[0] - int(0.5 * tsz), xy[0] + int(1.5 * tsz), 2 * tsz),
+            #                      np.linspace(xy[1] - int(0.5 * tsz), xy[1] + int(1.5 * tsz), 2 * tsz))
+            # label = path.contains_points(np.array([mx.flatten(), my.flatten()]).transpose()).reshape(2 * tsz, 2 * tsz)
+            # if debug:
+            #     label4_[label] = labelid[i] + 1
+            #
+            # label = scipy.ndimage.interpolation.zoom(label, 0.5,
+            #                                          order=0, mode='nearest')
+            # label1[label] = labelid[i] + 1
 
 
             mx, my = np.meshgrid(np.linspace(xy[0] - int(1.5 * tsz), xy[0] + int(2.5 * tsz), 4 * tsz),
@@ -255,8 +260,8 @@ def get_label(xy, anno, annoidx, labelid, tsz, method='multi', debug=False):
 
 
         if debug:
-            return label1_, label4_, label16_, label0, label1, label2
-        return label0, label1, label2
+            return label1_, label16_, label0, label2
+        return label0, label2
     elif method == 'augment':
         label2 = np.zeros((4 * tsz, 4 * tsz))
 

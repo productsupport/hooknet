@@ -157,7 +157,7 @@ class DataGenerator_metaData(keras.utils.Sequence):
 
     def __init__(self, metaData, data_folder, batch_size=10, dim=(256, 256),
                  n_channels=3, n_classes=10, shuffle=True, blur_augment=0, colour_augment=True,
-                 flip_augment=True, colour_scheme='hed'):
+                 flip_augment=False, colour_scheme='hed', mode=None):
 
         'Initialization'
         self.dim = dim
@@ -168,6 +168,7 @@ class DataGenerator_metaData(keras.utils.Sequence):
         self.shuffle = shuffle
         self.data_folder = data_folder
         self.on_epoch_end()
+        self.mode = mode
 
         # Basic augmentation settings
         self.blur = blur_augment
@@ -185,8 +186,10 @@ class DataGenerator_metaData(keras.utils.Sequence):
         list_IDs_temp = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
 
         # Generate data
-        # (X_c, Y_c, sample_weights_c), (X_t, Y_t, sample_weights_t) = self.__data_generation(list_IDs_temp)
-        # return (X_c, Y_c, sample_weights_c), (X_t, Y_t, sample_weights_t)
+        if self.mode == 'test':
+            (X_c, X_t), (Y_c, Y_t) = self.__data_generation(list_IDs_temp, self.mode)
+            return (X_c, X_t), (Y_c, Y_t)
+
         (X_c, X_t), (Y_c, Y_t), (sample_weights_c, sample_weights_t) = self.__data_generation(list_IDs_temp)
         return (X_c, X_t), (Y_c, Y_t), (sample_weights_c, sample_weights_t)
 
@@ -197,7 +200,7 @@ class DataGenerator_metaData(keras.utils.Sequence):
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
 
-    def __data_generation(self, list_IDs_temp):
+    def __data_generation(self, list_IDs_temp, mode=None):
         'Generates data containing batch_size samples'  # X : (n_samples, *dim, n_channels)
         # Initialization
         X_c = np.empty((self.batch_size, *self.dim, self.n_channels))
@@ -294,6 +297,9 @@ class DataGenerator_metaData(keras.utils.Sequence):
 
                 X_t[i,] = patch_t
                 Y_t[i,] = seg_t
+
+        if mode == 'test':
+            return (X_c, X_t), (Y_c, Y_t)
 
         # sample weights: approach 1: 0 for unknown class and 1 for the rest
         sample_weights_c = np.ones_like(Y_c)

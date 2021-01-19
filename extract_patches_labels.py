@@ -34,13 +34,15 @@ def main(slidePath, annotationPath, outFolder, counter, N, full_tile_anno=True, 
 #     classnames = ['Micro calcification', 'Muscle', 'MC', 'Mastopatic', 'CIS', 'Necrosis', 'NormalEpithelial', 'None',
 #                   'IDC', 'Stroma', 'Lymfocyten', 'Reactive changes', 'Adipose', 'RedBlood', 'Benigne', 'ILC']
     
-    classnames = ['Mastopatic', 'CIS', 'Necrosis', 'NormalEpithelial', 'IDC', 'Stroma', 'Lymfocyten', 
-                  'Adipose', 'RedBlood', 'ILC']
+    # classnames = ['Mastopatic', 'CIS', 'Necrosis', 'NormalEpithelial', 'IDC', 'Stroma', 'Lymfocyten',
+    #               'Adipose', 'RedBlood', 'ILC']
+    classnames = ['CIS', 'IDC', 'ILC', 'Stroma', 'Adipose', 'Other']
+    otherNames = ['Mastopatic', 'Necrosis', 'NormalEpithelial', 'RedBlood']
 
     # Load xml annotations and sort
     xmlbase = os.path.splitext(os.path.basename(annotationPath))[0]
 
-    annotation = utils.Annotation(annotationPath, names=classnames)
+    annotation = utils.Annotation(annotationPath, names=classnames, otherNames=otherNames)
     annotation = utils.sort_anno(annotation)
     
     # xy-coordinates of top left corner of each tile (Exclude boundary tiles: start from 2*tsz)
@@ -70,10 +72,10 @@ def main(slidePath, annotationPath, outFolder, counter, N, full_tile_anno=True, 
         # Compute the annotation masks for the given tiles
         # label0 = utils.get_label(xytile, annotation.coords, tileannoidx[i], annotation.labelid, tsz, method='single')
         if debug:
-            label1_, label4_, label16_, label0, label4, label16 = utils.get_label(
+            label1_, label16_, label0, label16 = utils.get_label(
                 xytile, annotation.coords, tileannoidx[i], annotation.labelid, tsz, method='multi', debug=debug)
         else:
-            label0, label4, label16 = utils.get_label(
+            label0, label16 = utils.get_label(
                 xytile, annotation.coords, tileannoidx[i], annotation.labelid, tsz, method='multi', debug=debug)
 
         patch0 = np.array(slide.read_region((xytile[0], xytile[1]), 0, (tsz, tsz)))  # dtype is: dtype=uint8
@@ -107,10 +109,10 @@ def main(slidePath, annotationPath, outFolder, counter, N, full_tile_anno=True, 
         # patch4 = np.clip(patch4, 0, 255)
         # patch16 = np.clip(patch16, 0, 255)
 
-        patch4 = slide.read_region((
-            xytile[0] - int(0.5 * tsz), xytile[1] - int(0.5 * tsz)), 0, (2 * tsz, 2 * tsz))  # dtype is: dtype=uint8
-        patch4 = patch4.resize((tsz, tsz))
-        patch4 = np.array(patch4)[:, :, :3]
+        # patch4 = slide.read_region((
+        #     xytile[0] - int(0.5 * tsz), xytile[1] - int(0.5 * tsz)), 0, (2 * tsz, 2 * tsz))  # dtype is: dtype=uint8
+        # patch4 = patch4.resize((tsz, tsz))
+        # patch4 = np.array(patch4)[:, :, :3]
 
         patch16 = slide.read_region((
             xytile[0] - int(1.5 * tsz), xytile[1] - int(1.5 * tsz)), 0, (4 * tsz, 4 * tsz))  # dtype is: dtype=uint8
@@ -140,10 +142,10 @@ def main(slidePath, annotationPath, outFolder, counter, N, full_tile_anno=True, 
         # print('flag: ', flag)
 
         if flag:
-            labels_temp = [label0, label4, label16]
-            patches_temp = [patch0, patch4, patch16]
+            labels_temp = [label0, label16]
+            patches_temp = [patch0, patch16]
             if separate_files:
-                pdsetnames = ['patches_20x', 'patches_10x', 'patches_5x']
+                pdsetnames = ['patches_20x', 'patches_5x']
                 outputPath = os.path.join(outFolder, svsbase + "_" + str(i) + ".h5")
                 with h5py.File(outputPath, 'w') as f:
                     for i, setname in enumerate(pdsetnames):
@@ -179,7 +181,7 @@ if __name__ == '__main__':
     
     # Optional arguments
     parser.add_argument("--tsz", default=256, type=int, help='Size of the patches (size x size x 3)')
-    parser.add_argument('--num_processes', default=4, type=int, help='how many processes to extract in parallel')
+    parser.add_argument('--num_processes', default=1, type=int, help='how many processes to extract in parallel')
     
     args = parser.parse_args()
     num_cores = args.num_processes
@@ -196,7 +198,6 @@ if __name__ == '__main__':
 #             outputPath = os.path.join(args.outfolder, sid + ".h5")
             outFolder = args.outfolder
             images.append([slidePath, annotationPath, outFolder])  # outputPath
-    # print(len(images))
 
     tsz = args.tsz
     num_cores = args.num_processes
@@ -205,4 +206,3 @@ if __name__ == '__main__':
     Parallel(n_jobs=num_cores)(
         delayed(main)(path[0], path[1], path[2], counter, len(images)) for counter, path in enumerate(images))
 
-   
