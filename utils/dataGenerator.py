@@ -221,76 +221,77 @@ class DataGenerator_metaData(keras.utils.Sequence):
                 patch_t = patch_t.astype('float') / 255
                 patch_c = patch_c.astype('float') / 255
 
-                if self.blur > 0:
-                    sigma = np.random.rand(1) * (1 + self.blur)
-                    patch = gaussian(patch, sigma=sigma, multichannel=True)
+                if mode != 'test':
+                    if self.blur > 0:
+                        sigma = np.random.rand(1) * (1 + self.blur)
+                        patch = gaussian(patch, sigma=sigma, multichannel=True)
 
-                if self.colour_augment:
-                    if self.colour_scheme == 'hsv':
-                        patch_c = np.clip(patch_c, -1, 1)
-                        patch_t = np.clip(patch_t, -1, 1)
-                        sample_hue = (np.random.rand(1) - 0.5) * 1
-                        sample_saturation = (np.random.rand(1) - 0.5) * 1
-                        hsv_c = rgb2hsv(patch_c)
-                        hsv_t = rgb2hsv(patch_t)
-                        hsv_c[:, :, 0] = np.clip(hsv_c[:, :, 0] + sample_hue, 0, 1)
-                        hsv_c[:, :, 1] = np.clip(hsv_c[:, :, 1] + sample_saturation, 0, 1)
-                        hsv_t[:, :, 0] = np.clip(hsv_t[:, :, 0] + sample_hue, 0, 1)
-                        hsv_t[:, :, 1] = np.clip(hsv_t[:, :, 1] + sample_saturation, 0, 1)
+                    if self.colour_augment:
+                        if self.colour_scheme == 'hsv':
+                            patch_c = np.clip(patch_c, -1, 1)
+                            patch_t = np.clip(patch_t, -1, 1)
+                            sample_hue = (np.random.rand(1) - 0.5) * 1
+                            sample_saturation = (np.random.rand(1) - 0.5) * 1
+                            hsv_c = rgb2hsv(patch_c)
+                            hsv_t = rgb2hsv(patch_t)
+                            hsv_c[:, :, 0] = np.clip(hsv_c[:, :, 0] + sample_hue, 0, 1)
+                            hsv_c[:, :, 1] = np.clip(hsv_c[:, :, 1] + sample_saturation, 0, 1)
+                            hsv_t[:, :, 0] = np.clip(hsv_t[:, :, 0] + sample_hue, 0, 1)
+                            hsv_t[:, :, 1] = np.clip(hsv_t[:, :, 1] + sample_saturation, 0, 1)
 
-                        patch_c = hsv2rgb(hsv_c)
-                        patch_t = hsv2rgb(hsv_t)
-                        patch_c = np.clip(patch_c, 0, 1.0).astype(np.float32)
-                        patch_t = np.clip(patch_t, 0, 1.0).astype(np.float32)
+                            patch_c = hsv2rgb(hsv_c)
+                            patch_t = hsv2rgb(hsv_t)
+                            patch_c = np.clip(patch_c, 0, 1.0).astype(np.float32)
+                            patch_t = np.clip(patch_t, 0, 1.0).astype(np.float32)
 
-                    elif self.colour_scheme == 'hed':
-                        ah = 0.95 + np.random.random() * 0.1
-                        bh = -0.05 + np.random.random() * 0.1
-                        ae = 0.95 + np.random.random() * 0.1
-                        be = -0.05 + np.random.random() * 0.1
-                        patch_c = np.clip(patch_c, -1, 1)
-                        patch_t = np.clip(patch_t, -1, 1)
-                        hed_c = rgb2hed(patch_c)
-                        hed_t = rgb2hed(patch_t)
-                        hed_c[:, :, 0] = ah * hed_c[:, :, 0] + bh
-                        hed_c[:, :, 1] = ae * hed_c[:, :, 1] + be
-                        hed_t[:, :, 0] = ah * hed_t[:, :, 0] + bh
-                        hed_t[:, :, 1] = ae * hed_t[:, :, 1] + be
+                        elif self.colour_scheme == 'hed':
+                            ah = 0.95 + np.random.random() * 0.1
+                            bh = -0.05 + np.random.random() * 0.1
+                            ae = 0.95 + np.random.random() * 0.1
+                            be = -0.05 + np.random.random() * 0.1
+                            patch_c = np.clip(patch_c, -1, 1)
+                            patch_t = np.clip(patch_t, -1, 1)
+                            hed_c = rgb2hed(patch_c)
+                            hed_t = rgb2hed(patch_t)
+                            hed_c[:, :, 0] = ah * hed_c[:, :, 0] + bh
+                            hed_c[:, :, 1] = ae * hed_c[:, :, 1] + be
+                            hed_t[:, :, 0] = ah * hed_t[:, :, 0] + bh
+                            hed_t[:, :, 1] = ae * hed_t[:, :, 1] + be
 
-                        patch_c = hed2rgb(hed_c)
-                        patch_t = hed2rgb(hed_t)
+                            patch_c = hed2rgb(hed_c)
+                            patch_t = hed2rgb(hed_t)
 
-                        patch_c = np.clip(patch_c, 0, 1.0).astype(np.float32)
-                        patch_t = np.clip(patch_t, 0, 1.0).astype(np.float32)
+                            patch_c = np.clip(patch_c, 0, 1.0).astype(np.float32)
+                            patch_t = np.clip(patch_t, 0, 1.0).astype(np.float32)
 
-                if self.flip:
-                    # if whatflip == 5, nothing happens
-                    whatflip = np.random.randint(6)
-                    if whatflip == 0:  # Rotate 90
-                        patch_c = rotate(patch_c, 90)
-                        seg_c = rotate(seg_c, 90)
-                        patch_t = rotate(patch_t, 90)
-                        seg_t = rotate(seg_t, 90)
-                    elif whatflip == 1:  # Rotate 180
-                        patch_c = rotate(patch_c, 180)
-                        seg_c = rotate(seg_c, 180)
-                        patch_t = rotate(patch_t, 180)
-                        seg_t = rotate(seg_t, 180)
-                    elif whatflip == 2:  # Rotate 270
-                        patch_c = rotate(patch_c, 270)
-                        seg_c = rotate(seg_c, 270)
-                        patch_t = rotate(patch_t, 270)
-                        seg_t = rotate(seg_t, 270)
-                    elif whatflip == 3:  # Flip left-right
-                        patch_c = patch_c[:, -1::-1, :]
-                        seg_c = seg_c[:, -1::-1]
-                        patch_t = patch_t[:, -1::-1, :]
-                        seg_t = seg_t[:, -1::-1]
-                    elif whatflip == 4:  # Flip up-down
-                        patch_c = patch_c[-1::-1, :, :]
-                        seg_c = seg_c[-1::-1, :]
-                        patch_t = patch_t[-1::-1, :, :]
-                        seg_t = seg_t[-1::-1, :]
+                    if self.flip:
+                        # if whatflip == 5, nothing happens
+                        whatflip = np.random.randint(6)
+                        if whatflip == 0:  # Rotate 90
+                            patch_c = rotate(patch_c, 90)
+                            seg_c = rotate(seg_c, 90)
+                            patch_t = rotate(patch_t, 90)
+                            seg_t = rotate(seg_t, 90)
+                        elif whatflip == 1:  # Rotate 180
+                            patch_c = rotate(patch_c, 180)
+                            seg_c = rotate(seg_c, 180)
+                            patch_t = rotate(patch_t, 180)
+                            seg_t = rotate(seg_t, 180)
+                        elif whatflip == 2:  # Rotate 270
+                            patch_c = rotate(patch_c, 270)
+                            seg_c = rotate(seg_c, 270)
+                            patch_t = rotate(patch_t, 270)
+                            seg_t = rotate(seg_t, 270)
+                        elif whatflip == 3:  # Flip left-right
+                            patch_c = patch_c[:, -1::-1, :]
+                            seg_c = seg_c[:, -1::-1]
+                            patch_t = patch_t[:, -1::-1, :]
+                            seg_t = seg_t[:, -1::-1]
+                        elif whatflip == 4:  # Flip up-down
+                            patch_c = patch_c[-1::-1, :, :]
+                            seg_c = seg_c[-1::-1, :]
+                            patch_t = patch_t[-1::-1, :, :]
+                            seg_t = seg_t[-1::-1, :]
 
                 X_c[i,] = patch_c
                 Y_c[i,] = seg_c

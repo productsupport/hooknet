@@ -56,22 +56,28 @@ python extract_patches_labels.py --svsfolder D:\\annotated_slides\\Slides --xmlf
   classmeta_temp = self.metaData.groupby(["class_id"]).sample(n=1000, replace=True)  # random_state=1 
 - class/label stats for:
 # training data:
-   class_id class_label  counts
-0         1     Adipose   15008
+ class_id class_label  counts
+0         1     Adipose   15164
 1         2         CIS    1871
-2         3         IDC   23575
+2         3         IDC   27192
 3         4         ILC    5734
 4         5       Other    4747
-5         6      Stroma    9658
+5         6      Stroma   10284
 
 # validation data:
-  class_id class_label  counts
-0         1     Adipose   23226
+   class_id class_label  counts
+0         1     Adipose   24540
 1         2         CIS     241
 2         3         IDC   15780
-3         4         ILC    2378
+3         4         ILC   10346
 4         5       Other    1862
-5         6      Stroma    2052
+5         6      Stroma    2189
+
+# test data: 
+class_id  counts 
+3         2003
+5          503
+6          275
 
 # too many patches
 HE_FFP17-008462I1 : 14,107 (very slow)

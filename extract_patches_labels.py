@@ -181,7 +181,7 @@ if __name__ == '__main__':
     
     # Optional arguments
     parser.add_argument("--tsz", default=256, type=int, help='Size of the patches (size x size x 3)')
-    parser.add_argument('--num_processes', default=1, type=int, help='how many processes to extract in parallel')
+    parser.add_argument('--num_processes', default=4, type=int, help='how many processes to extract in parallel')
     
     args = parser.parse_args()
     num_cores = args.num_processes
