@@ -7,7 +7,10 @@ from skimage.transform import resize, rotate
 from skimage.filters import gaussian
 from skimage.color import rgb2hed, hed2rgb, hsv2rgb, rgb2hsv
 
+# from utils import colour_augment_hed
 from skimage.color import rgb2gray
+import random
+
 
 class DataGenerator(keras.utils.Sequence):
     'Generates data for Keras'
@@ -182,7 +185,6 @@ class DataGenerator_metaData(keras.utils.Sequence):
 
     def __getitem__(self, index):
         'Generate one batch of data'
-        # Generate indexes of the batch
         list_IDs_temp = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
 
         # Generate data
@@ -195,8 +197,25 @@ class DataGenerator_metaData(keras.utils.Sequence):
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
-        classmeta_temp = self.metaData.groupby(["class_id"]).sample(n=1000, replace=True)  # random_state=1
-        self.indexes = list(classmeta_temp.patch_name.values)
+        epoch_patches = []
+        for class_id in self.metaData["class_id"].unique():
+            patch_names = list(self.metaData[self.metaData['class_id'] == class_id]['patch_name'].values)
+            if class_id == 1:  # Adipose
+                random_patches = random.sample(patch_names, 500)
+                epoch_patches.extend(random_patches)
+            elif class_id == 2:  # InvTumour
+                random_patches = random.sample(patch_names, 4000)
+                epoch_patches.extend(random_patches)
+            elif class_id == 3:  # Other
+                random_patches = random.sample(patch_names, 1000)
+                epoch_patches.extend(random_patches)
+            else:  # Stroma
+                random_patches = random.sample(patch_names, 2000)
+                epoch_patches.extend(random_patches)
+
+        # classmeta_temp = self.metaData.groupby(["class_id"]).sample(n=4000, replace=False)  # random_state=1
+        # self.indexes = list(classmeta_temp.patch_name.values)
+        self.indexes = epoch_patches
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
 
@@ -249,14 +268,19 @@ class DataGenerator_metaData(keras.utils.Sequence):
                             bh = -0.05 + np.random.random() * 0.1
                             ae = 0.95 + np.random.random() * 0.1
                             be = -0.05 + np.random.random() * 0.1
-                            patch_c = np.clip(patch_c, -1, 1)
-                            patch_t = np.clip(patch_t, -1, 1)
+                            ad = 0.95 + np.random.random() * 0.1
+                            bd = -0.05 + np.random.random() * 0.1
+                            # patch_c = np.clip(patch_c, -1, 1)
+                            # patch_t = np.clip(patch_t, -1, 1)
                             hed_c = rgb2hed(patch_c)
                             hed_t = rgb2hed(patch_t)
                             hed_c[:, :, 0] = ah * hed_c[:, :, 0] + bh
                             hed_c[:, :, 1] = ae * hed_c[:, :, 1] + be
+                            hed_c[:, :, 2] = ad * hed_c[:, :, 2] + bd
+
                             hed_t[:, :, 0] = ah * hed_t[:, :, 0] + bh
                             hed_t[:, :, 1] = ae * hed_t[:, :, 1] + be
+                            hed_t[:, :, 2] = ad * hed_t[:, :, 2] + bd
 
                             patch_c = hed2rgb(hed_c)
                             patch_t = hed2rgb(hed_t)

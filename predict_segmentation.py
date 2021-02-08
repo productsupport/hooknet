@@ -12,36 +12,13 @@ import skimage.measure
 
 from joblib import Parallel, delayed
 
-import tensorflow as tf
-from tensorflow import keras
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import Model
 
 import torch
-from torchvision import transforms
-import torch.nn as nn
 
 # Custom imports
 from utils import logging
-
-
-def colour_augment_hed(x):
-    ah = 0.95 + np.random.random() * 0.1
-    bh = -0.05 + np.random.random() * 0.1
-    ae = 0.95 + np.random.random() * 0.1
-    be = -0.05 + np.random.random() * 0.1
-    ad = 0.95 + np.random.random() * 0.1
-    bd = -0.05 + np.random.random() * 0.1
-    hed = rgb2hed(x)
-
-    hed[:, :, 0] = ah * hed[:, :, 0] + bh
-    hed[:, :, 1] = ae * hed[:, :, 1] + be
-    hed[:, :, 2] = ad * hed[:, :, 2] + bd
-
-    x = hed2rgb(hed)
-    # x = np.clip(x, 0, 1.0).astype(np.float32)
-    x = x.astype(np.float32)
-    return x
 
 
 def load_patches(file, mags, jpeg=True):
@@ -67,11 +44,11 @@ def jpeg2patch(patch):
     return Image.open(io.BytesIO(np.array(patch)))
 
 
-def get_features(patches, model, batch_size=32, dim=(256, 256, 3)):
+def get_segmentation(patches, model, batch_size=32):
     # Number of batches to iterate over
     steps = int(np.ceil(len(patches[0]) / batch_size))
     print('steps: ', steps)
-    features = []
+    segmentations = []
 
     for index in range(steps):
         X_c = []
@@ -98,25 +75,20 @@ def get_features(patches, model, batch_size=32, dim=(256, 256, 3)):
         X_t = np.array(X_t)
 
         # Extract the features
-        features_batch = model.predict([X_c, X_t])
-        # features_batch = skimage.measure.block_reduce(features_batch, (1, 4, 4, 1), np.max)  # do max pooling
-        features_batch = features_batch[:, 4:12, 4:12, :]
-        # features.append(np.reshape(features_batch, (features_batch.shape[0], -1)))
-        features.append(features_batch)
-    return np.concatenate(features, axis=0)
+        segmentations_batch = model.predict([X_c, X_t])
+        segmentations_batch = segmentations_batch.astype(np.uint8)
+        segmentations.append(segmentations_batch)
+    return np.concatenate(segmentations, axis=0)
 
 
 def main(file, n, N, model, args):
     # Slide identifier
-    slideid = os.path.splitext(os.path.basename(file))[0]
-    outfilefeat = os.path.join(args.savedir, slideid + '.pt')
-
 
     # Slide on ssd
     filessd = os.path.join(args.ssd_dir, os.path.basename(file))
 
     # Check if slide is processed already
-    if np.any(not os.path.isfile(outfilefeat)) & os.path.isfile(file):
+    if np.any(not os.path.isfile(outfileseg)) & os.path.isfile(file):
         copyfile(file, filessd)
         # Get tissue patches with their corresponding pixel coordinates from slide
         patches, coords, mask = load_patches(filessd, args.mags)
@@ -125,8 +97,13 @@ def main(file, n, N, model, args):
         features = get_features(patches, model, batch_size=args.batch_size)
         print("features shape: ", features.shape)
         # Features
+
+        outfilessd = os.path.join(args.ssd_dir, slideid + '.h5')
+        utils.store_patches(patches, coords, mask, outfilessd, not args.jpeg)
+        copyfile(outfilessd, outfile)
+
         features = torch.from_numpy(features)
-        torch.save(features, outfilefeat)
+        torch.save(features, outfileseg)
 
         os.remove(filessd)
 

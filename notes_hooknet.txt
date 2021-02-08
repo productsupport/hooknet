@@ -12,7 +12,7 @@ Valid convolutions.
                               32-30-28        20-18-16
                                       14-12-10
 
-
+# exp_2
 256-256-256                                                              256-256-256
 (0.5,2.0)  128-128-128                                        128-128-128   (0.5,2.0)
            (1.0,4.0)  64-64-64                        64-64-64     (1.0,4.0)
@@ -35,7 +35,7 @@ Valid convolutions.
                           (4.0,32.0)  16-16-16 (4.0, 32.0) 
                                      (8.0,64.0)
 
-
+Used in exp_1:
 256-256-256                                               256-256-256
 (0.5,4.0)  128-128-128                         128-128-128 (0.5,4.0)
           (1.0,8.0)   64-64-64         64-64-64  (1.0,8.0)
@@ -45,6 +45,7 @@ Valid convolutions.
 ### extract patches
 python extract_patches_labels.py --svsfolder D:\\annotated_slides\\Slides --xmlfolder D:\\annotated_slides\\Annotations --outfolder D:\\annotated_slides\\separate_patches_and_labels_hooknet_exp_1 --csv D:\\annotated_slides\\Slides\\csv_file_temp.csv
 
+#############
 # hooknet_exp_1: experiment details
 - classnames = ['CIS', 'IDC', 'ILC', 'Stroma', 'Adipose', 'Other']
 - 'Other' class includes: ['Mastopatic', 'Necrosis', 'NormalEpithelial', 'RedBlood']
@@ -85,14 +86,41 @@ HE_FFP17-008462I1 : 14,107 (very slow)
 HE_FFP16-016727I1 :  (very slow)
 
 
-
 ### use the encoder part of the model to extract features
 python encode_patches2features.py --datadir "\\10.100.20.22\\AI_Data\\Patches" --savedir "D:\\1500_cases\\Features_hooknet" --ssd-dir "D:\\1500_cases\\ssddir" --csv "D:\\1500_cases\\df_train_test.csv" --filetype h5 --batch_size 32 --mags 0, 2 --modelpath "D:\\annotated_slides\\models\\hooknet\\model_hooknet_exp_1.h5"
 
 
+##############################################
+##### hooknet_exp_2: experiment details
+- unique_class_labels:  
+  ['RedBlood', 'Adipose', 'MC', 'Benigne', 'CIS', 'Stroma', 'NormalEpithelial', 
+   'IDC', 'Mastopatic', 'Necrosis', 'ILC', 'Micro calcification', 'None', 'Lymfocyten', 
+   'Muscle', 'Reactive changes']
+We want to distinguish between the following classes: ['tumour', 'stroma', 'Adipose', 'Other']
+ - 'tumour':  ['CIS', 'IDC', 'ILC', 'Necrosis', 'MC']
+ - 'stroma':  ['stroma']
+ - 'Adipose': ['Adipose']
+ - 'Other': ['RedBlood', 'Benigne', 'NormalEpithelial', 'Mastopatic', 'Micro calcification', 'Lymfocyten'], 'Muscle', 'Reactive changes']
 
+### extract patches
+python extract_patches_labels.py --svsfolder D:\\annotated_slides\\Slides --xmlfolder D:\\annotated_slides\\Annotations --outfolder D:\\annotated_slides\\separate_patches_and_labels --csv D:\\annotated_slides\\Slides\\csv_file.csv
 
+train: 
+   class_id class_label  counts
+0         1     Adipose   15164
+1         2   InvTumour   37882
+2         3       Other    5033
+3         4      Stroma   10280
 
+validation:
+   class_id class_label  counts
+0         1     Adipose   24540
+1         2   InvTumour   28500
+2         3       Other    2930
+3         4      Stroma    2464
+
+### use the encoder part of the model to extract features
+python encode_patches2features.py --datadir "\\10.100.20.22\\AI_Data\\Patches" --savedir "D:\\1500_cases\\Features_hooknet\\exp_2\Features" --ssd-dir "D:\\1500_cases\\ssddir" --csv "D:\\1500_cases\\df_train_test.csv" --filetype h5 --batch_size 32 --mags 0, 2 --modelpath "D:\\annotated_slides\\models\\hooknet\\exp_2\\model_hooknet_exp_2.h5"
 
 
 

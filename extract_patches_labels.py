@@ -36,13 +36,14 @@ def main(slidePath, annotationPath, outFolder, counter, N, full_tile_anno=True, 
     
     # classnames = ['Mastopatic', 'CIS', 'Necrosis', 'NormalEpithelial', 'IDC', 'Stroma', 'Lymfocyten',
     #               'Adipose', 'RedBlood', 'ILC']
-    classnames = ['CIS', 'IDC', 'ILC', 'Stroma', 'Adipose', 'Other']
-    otherNames = ['Mastopatic', 'Necrosis', 'NormalEpithelial', 'RedBlood']
+    classnames = ['InvTumour', 'Stroma', 'Adipose', 'Other']
+    InvTumourClass = ['CIS', 'IDC', 'ILC', 'MC', 'Necrosis']
+    OtherClass = ['RedBlood', 'Benigne', 'NormalEpithelial', 'Mastopatic', 'Micro calcification', 'Lymfocyten', 'Muscle', 'Reactive changes']
 
     # Load xml annotations and sort
     xmlbase = os.path.splitext(os.path.basename(annotationPath))[0]
 
-    annotation = utils.Annotation(annotationPath, names=classnames, otherNames=otherNames)
+    annotation = utils.Annotation(annotationPath, names=classnames, InvTumourClass=InvTumourClass, OtherClass=OtherClass)
     annotation = utils.sort_anno(annotation)
     
     # xy-coordinates of top left corner of each tile (Exclude boundary tiles: start from 2*tsz)

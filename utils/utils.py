@@ -52,7 +52,7 @@ def tissue_segment(img):
 
 # XML reader for annotations written by the ASAP WSI-viewer (https://computationalpathologygroup.github.io/ASAP/)
 class Annotation:
-    def __init__(self, xmlfile, names=None, otherNames=None):
+    def __init__(self, xmlfile, names=None, InvTumourClass=None, OtherClass=None):
         self.xmlfile = xmlfile
         tree = et.parse(self.xmlfile)
         root = tree.getroot()
@@ -62,8 +62,11 @@ class Annotation:
         for elem in annotations:
             # Loop over annotations
             label_temp = elem.get('PartOfGroup')
-            if label_temp in otherNames:
+            if label_temp in OtherClass:
                 label_temp = 'Other'
+                label.append(label_temp)
+            elif label_temp in InvTumourClass:
+                label_temp = 'InvTumour'
                 label.append(label_temp)
             else:
                 label.append(label_temp)
@@ -76,13 +79,15 @@ class Annotation:
                 # print(i,x,y)
             xy.append(np.array(coordinates, dtype='float'))
 
-#         print('labels in the annotated file: ', list(np.unique(label)))
+        # print('labels in the annotated file: ', list(np.unique(label)))
         le = preprocessing.LabelEncoder()
         if names is not None:
             le.fit(names)
             # print('classes: ', list(le.classes_))
             idx = [j for j, word in enumerate(label) if word in names]
+            # print("idx: ", idx)
             label = [label[i] for i in idx]
+            # print('label: ', label)
             classnames = list(le.classes_)
             xy = [xy[i] for i in idx]
         else:
@@ -331,3 +336,55 @@ def give_color_to_seg_img(seg, n_classes):
         seg_img[:,:, 2] += (segc*( colors[c][2]/255.0 ))
 
     return(seg_img)
+
+
+def colour_augment_hed(x):
+    ah = 0.95 + np.random.random() * 0.1
+    bh = -0.05 + np.random.random() * 0.1
+    ae = 0.95 + np.random.random() * 0.1
+    be = -0.05 + np.random.random() * 0.1
+    ad = 0.95 + np.random.random() * 0.1
+    bd = -0.05 + np.random.random() * 0.1
+    hed = rgb2hed(x)
+
+    hed[:, :, 0] = ah * hed[:, :, 0] + bh
+    hed[:, :, 1] = ae * hed[:, :, 1] + be
+    hed[:, :, 2] = ad * hed[:, :, 2] + bd
+
+    x = hed2rgb(hed)
+    x = np.clip(x, 0, 1.0).astype(np.float32)
+    # x = x.astype(np.float32)
+    return x
+
+
+def store_patches(patches, coords, mask, file, jpeg=False):
+    d = os.path.dirname(file)
+    sid = os.path.splitext(os.path.basename(file))[0]
+    ftmp = os.path.join(d, 'tmp_{}.jpg'.format(sid))
+    patchesjpg = []
+    for patchesi in patches:
+        pjpgi = []
+        for p, pa in enumerate(patchesi):
+            if jpeg:
+                pjpgi.append(patch2jpeg(pa, ftmp))
+            else:
+                pjpgi.append(pa)
+        pjpgi = np.concatenate(pjpgi)
+        patchesjpg.append(pjpgi)
+    if jpeg:
+        os.remove(ftmp)
+
+    # Write hdf5 file
+    pdsetnames = ['segmentations_20x']
+    with h5py.File(file, 'w') as f:
+        for i, pjpg in enumerate(patchesjpg):
+            f.create_dataset(pdsetnames[i], data=pjpg)
+        f.create_dataset('mask', data=mask)
+        f.create_dataset('coordinates', data=coords)
+
+
+def patch2jpeg(patch, name):
+    patch.save(name, 'JPEG', quality=80)
+    with open(name, 'rb') as img_f:
+        image_file = img_f.read()
+        return np.asarray(image_file).reshape(1, )
